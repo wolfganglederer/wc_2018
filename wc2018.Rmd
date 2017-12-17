@@ -1,0 +1,137 @@
+---
+title: "World Cup 2018"
+output:
+  html_document:
+    df_print: paged
+---
+
+
+```{r, include = FALSE}
+library(rvest)
+library(tidyverse)
+library(knitr)
+library(DT)
+```
+
+
+
+```{r, include = FALSE}
+elo_ratings_web <- read_html("http://www.eloratings.net/")
+
+elo_ratings_tab <- html_table(elo_ratings_web, fill = TRUE)[[3]] %>% 
+  filter(X1 !="rank") %>% 
+  slice(-1) %>% 
+  select(X2, X3) %>% 
+  rename(country = X2, "score" = X3) %>% 
+  mutate(score = as.numeric(score))
+```
+
+
+```{r, include = FALSE}
+schedule_web <- read_html("http://www.independent.co.uk/sport/football/world-cup/world-cup-2018-full-schedule-groups-fixtures-kick-off-times-venues-matches-wallchart-a8087881.html")
+
+
+schedule_tab <- html_table(schedule_web, fill = TRUE)[[1]] %>% 
+  slice(3:50) %>% 
+  select(X2) %>% 
+  separate(X2, c("home", "away"), sep = " v ") %>% 
+  separate(away, c("away", "group"), sep = " \\(") %>% 
+  mutate(group = factor(str_sub(group, end = 1)))
+```
+
+
+```{r, include = FALSE}
+schedule_prob <- schedule_tab %>% 
+  left_join(elo_ratings_tab, by = c("home" = "country")) %>% 
+  left_join(elo_ratings_tab, by = c("away" = "country"), suffix = c("_home", "_away"))  %>% 
+  mutate(diff = score_home - score_away,
+    win_home = 1/(10^(-diff/400)+1),
+    win_away = 1- win_home)
+```
+
+## All Matches
+
+```{r, echo =FALSE}
+schedule_prob %>% 
+  arrange(group) %>% 
+  datatable(filter = "top", options = list(pageLength = 12)) %>% 
+  formatStyle(c(7,8) ,background = styleColorBar(0:1, 'lightblue')) %>% 
+  formatPercentage(c(7,8), digits = 2)
+```
+
+## Group with the strongest Teams
+
+```{r, echo =FALSE}
+schedule_prob %>% 
+  group_by(home, group) %>% 
+  summarise() %>% 
+  left_join(elo_ratings_tab, by = c("home" = "country")) %>% 
+  group_by(group) %>% 
+  summarise(score = sum(score)) %>% 
+  arrange(desc(score)) %>% 
+  ggplot(aes(x = fct_reorder(group, score), y = score ))+
+  geom_col()+
+  xlab("Group")+
+  ylab("Sum of ELO scores")
+
+```
+
+## Simulated group results
+
+```{r, include = FALSE}
+
+sim_group_stage <- function(df, n){
+
+group_sim <- list()
+  
+for (i in 1:n){
+  
+group_stage <- df %>% 
+  mutate(result_sim = runif(n()),
+         winner = if_else(result_sim <= win_home, home, away),
+         diff_winner = if_else(result_sim <= win_home, win_home - result_sim , -(win_home - result_sim)),
+         diff_home = if_else(result_sim <= win_home, diff_winner, -diff_winner),
+         diff_away = if_else(result_sim <= win_home, -diff_winner, diff_winner),
+         home_winner = if_else(diff_home > 0, 1, 0 ),
+         away_winner = if_else(diff_away > 0, 1, 0 ))
+
+
+table_group <- group_stage %>% 
+  gather(key = "key", value= "team", home, away) %>%
+  mutate(win = if_else(key == "home", home_winner, away_winner),
+         diff_goal = if_else(key == "home", diff_home, diff_away)) %>% 
+  group_by(group, team) %>% 
+    summarise(points = sum(win)*3,
+              goal_diff = sum(diff_goal)) %>% 
+  arrange(group, desc(points), desc(goal_diff)) %>% 
+  ungroup() %>% 
+  add_column(sim = i, group_rank = rep(1:4,8))
+
+group_sim[[i]] <- table_group
+
+
+}
+group_sim
+}
+
+```
+
+
+```{r, echo = FALSE}
+group_stage_simulated <- sim_group_stage(schedule_prob, 200)
+
+
+
+qualified <- bind_rows(group_stage_simulated) %>% filter(group_rank %in% c(1,2)) %>% 
+  group_by(group, team) %>% 
+  summarise(next_stage = n() / length(group_stage_simulated)) %>% 
+  arrange(group, desc(next_stage))
+
+qualified %>% 
+  datatable(options = list(pageLength = 8)) %>% 
+  formatStyle(3 ,background = styleColorBar(0:1, 'lightblue')) %>% 
+  formatPercentage(3, digits = 2)
+  
+  
+```
+
