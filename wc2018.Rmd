@@ -14,6 +14,7 @@ output:
 ```{r, include = FALSE}
 library(rvest)
 library(tidyverse)
+library(plotly)
 library(DT)
 ```
 
@@ -73,10 +74,8 @@ schedule_prob %>%
   group_by(group) %>% 
   summarise(score = sum(score)) %>% 
   arrange(desc(score)) %>% 
-  ggplot(aes(x = fct_reorder(group, score), y = score ))+
-  geom_col()+
-  xlab("Group")+
-  ylab("Sum of ELO scores")
+  mutate(group = fct_reorder(group, score)) %>% 
+plot_ly( type="bar", x = ~group, y = ~score)
 
 ```
 
