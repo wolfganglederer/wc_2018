@@ -122,9 +122,11 @@ group_sim
 
 
 ```{r, echo = FALSE}
-group_stage_simulated <- sim_group_stage(schedule_prob, 200)
+# group_stage_simulated <- sim_group_stage(schedule_prob, 10000)
 
+# saveRDS(group_stage_simulated, "group_stage_simulated.rds")
 
+group_stage_simulated <- readRDS("group_stage_simulated.rds")
 
 qualified <- bind_rows(group_stage_simulated) %>% filter(group_rank %in% c(1,2)) %>% 
   group_by(group, team) %>% 
