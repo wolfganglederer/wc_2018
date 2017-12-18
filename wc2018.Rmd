@@ -14,7 +14,6 @@ output:
 ```{r, include = FALSE}
 library(rvest)
 library(tidyverse)
-library(knitr)
 library(DT)
 ```
 
