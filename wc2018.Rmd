@@ -13,22 +13,30 @@ output:
 
 ```{r, include = FALSE}
 library(rvest)
+library(readr)
 library(tidyverse)
 library(plotly)
 library(DT)
+library(countrycode)
 ```
 
 
 
 ```{r, include = FALSE}
-elo_ratings_web <- read_html("http://www.eloratings.net/")
-
-elo_ratings_tab <- html_table(elo_ratings_web, fill = TRUE)[[3]] %>% 
-  filter(X1 !="rank") %>% 
-  slice(-1) %>% 
-  select(X2, X3) %>% 
-  rename(country = X2, "score" = X3) %>% 
-  mutate(score = as.numeric(score))
+elo_ratings_tab <- read_tsv("http://www.eloratings.net/World.tsv", col_names = FALSE)
+elo_ratings_tab <- elo_ratings_tab %>%   
+  select(X3, X4) %>% 
+  rename(country_iso = X3, "score" = X4) %>% 
+  mutate(country = countrycode(country_iso, "iso2c", "country.name"),
+         country = if_else(country_iso == "EN", "England", country),
+         country = if_else(country_iso == "WA", "WALES", country),
+         country = if_else(country_iso == "AA", "Scotland", country),
+         country = if_else(country_iso == "EI", "Northern Ireland", country),
+         country = if_else(country_iso == "RU", "Russia", country),
+         country = if_else(country_iso == "IR", "Iran", country),
+         country = if_else(country_iso == "KR", "South Korea", country)) %>% 
+  select(-country_iso)
+  
 ```
 
 
@@ -120,8 +128,10 @@ group_sim
 ```
 
 
+## Qualified for Quarter Finals
+
 ```{r, echo = FALSE}
-# group_stage_simulated <- sim_group_stage(schedule_prob, 10000)
+#group_stage_simulated <- sim_group_stage(schedule_prob, 10000)
 
 # saveRDS(group_stage_simulated, "group_stage_simulated.rds")
 
@@ -138,5 +148,33 @@ qualified %>%
   formatPercentage(3, digits = 2)
   
   
+```
+
+## Winner of Group
+
+```{r, echo = FALSE}
+group_win <- bind_rows(group_stage_simulated) %>% filter(group_rank == 1) %>% 
+  group_by(group, team) %>% 
+  summarise(next_stage = n() / length(group_stage_simulated)) %>% 
+  arrange(group, desc(next_stage))
+
+group_win %>% 
+  datatable(options = list(pageLength = 8)) %>% 
+  formatStyle(3 ,background = styleColorBar(0:1, 'lightblue')) %>% 
+  formatPercentage(3, digits = 2)
+```
+
+## Runner Up of group
+
+```{r, echo = FALSE}
+group_runner_up <- bind_rows(group_stage_simulated) %>% filter(group_rank == 2) %>% 
+  group_by(group, team) %>% 
+  summarise(next_stage = n() / length(group_stage_simulated)) %>% 
+  arrange(group, desc(next_stage))
+
+group_runner_up %>% 
+  datatable(options = list(pageLength = 8)) %>% 
+  formatStyle(3 ,background = styleColorBar(0:1, 'lightblue')) %>% 
+  formatPercentage(3, digits = 2)
 ```
 
