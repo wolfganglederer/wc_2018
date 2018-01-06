@@ -131,11 +131,11 @@ group_sim
 ## Qualified for Quarter Finals
 
 ```{r, echo = FALSE}
-#group_stage_simulated <- sim_group_stage(schedule_prob, 10000)
+group_stage_simulated <- sim_group_stage(schedule_prob, 500)
 
 # saveRDS(group_stage_simulated, "group_stage_simulated.rds")
 
-group_stage_simulated <- readRDS("group_stage_simulated.rds")
+# group_stage_simulated <- readRDS("group_stage_simulated.rds")
 
 qualified <- bind_rows(group_stage_simulated) %>% filter(group_rank %in% c(1,2)) %>% 
   group_by(group, team) %>% 
@@ -175,6 +175,216 @@ group_runner_up <- bind_rows(group_stage_simulated) %>% filter(group_rank == 2) 
 group_runner_up %>% 
   datatable(options = list(pageLength = 8)) %>% 
   formatStyle(3 ,background = styleColorBar(0:1, 'lightblue')) %>% 
+  formatPercentage(3, digits = 2)
+```
+
+## Quarter Finals
+
+```{r, echo = FALSE}
+
+knock_out_stages <- function(group_stages_df, matches, elo_ratings_tab){
+
+teams <- group_stages_df %>% 
+  left_join(elo_ratings_tab, by = c("team" = "country")) %>% 
+  filter(group_rank %in% c(1L,2L)) %>% 
+  unite(group_rank,group , group_rank, sep ="") %>% 
+  select(group_rank, team, score, sim)
+  
+  
+matches %>% 
+  left_join(teams, by = c("home"="group_rank")) %>%  
+  left_join(teams, by = c("away"="group_rank"), suffix = c("_home", "_away")) %>%
+    mutate(diff = score_home - score_away,
+    win_home = 1/(10^(-diff/400)+1),
+    win_away = 1- win_home,
+    sim = sim_home)%>%
+  mutate(result_sim = runif(n()),
+         winner = if_else(result_sim <= win_home, team_home, team_away)) %>% 
+  select(match, winner, sim, team_home, team_away) %>% return()
+  
+}
+
+```
+
+
+```{r, echo = FALSE}
+# http://www.bbc.com/sport/football/world-cup/schedule/knockout-stage
+
+matches <- tribble(~match, ~home,~away,
+        "qf2", "A1","B2",
+        "qf3", "B1", "A2",
+        "qf1", "C1", "D2",
+        "qf4", "D1", "C2",
+        "qf5", "E1", "F2",
+        "qf7", "F1", "E2",
+        "qf6", "G1", "H2",
+        "qf8", "H1", "G2")
+
+round16 <- map(group_stage_simulated, knock_out_stages, matches = matches, elo_ratings_tab = elo_ratings_tab )
+
+```
+
+
+## Advancing to Quarterfinal
+
+```{r, echo = FALSE}
+round16 %>% bind_rows() %>% 
+  group_by(winner) %>% 
+  summarise(prob_qf = n()/length(group_stage_simulated)) %>% 
+  arrange(desc(prob_qf)) %>% 
+  datatable(options = list(pageLength = 8)) %>% 
+  formatStyle(2, background = styleColorBar(0:1, 'lightblue')) %>% 
+  formatPercentage(2, digits = 2)
+```
+
+## Most probable pairings in the round of 16
+
+```{r}
+round16 %>%  bind_rows() %>% 
+  group_by(team_home, team_away) %>% 
+  summarise(n = n()/length(group_stage_simulated)) %>% 
+  arrange(desc(n)) %>% 
+  datatable(options = list(pageLength = 8)) %>% 
+  formatStyle(3, background = styleColorBar(0:1, 'lightblue')) %>% 
+  formatPercentage(3, digits = 2)
+ 
+```
+
+
+
+
+```{r, echo = FALSE}
+
+knock_out2 <- function(round_df, elo_ratings_tab, matches){
+  
+teams <- round_df %>% 
+  left_join(elo_ratings_tab, by = c("winner" = "country")) %>% 
+  select(match, winner, score, sim) %>% 
+  rename(team = winner)
+
+matches %>% 
+  left_join(teams, by = c("home"="match")) %>%  
+  left_join(teams, by = c("away"="match"), suffix = c("_home", "_away")) %>%
+    mutate(diff = score_home - score_away,
+    win_home = 1/(10^(-diff/400)+1),
+    win_away = 1- win_home,
+    sim = sim_home,
+    result_sim = runif(n()),
+    winner = if_else(result_sim <= win_home, team_home, team_away))%>%
+  select(match, winner, sim, team_home, team_away) %>% return()
+}
+
+```
+
+## Advancing to the Semi-Final
+
+```{r, echo = FALSE}
+matches_qf <- tribble(~match, ~home,~away,
+        "sf1", "qf1", "qf2",
+        "sf2", "qf5", "qf6",
+        "sf3", "qf3", "qf4",
+        "sf4", "qf7", "qf8"
+)
+
+
+quarter_final <- round16 %>% 
+  map(knock_out2, matches = matches_qf, elo_ratings_tab = elo_ratings_tab )
+```
+
+
+```{r, echo = FALSE}
+quarter_final %>% bind_rows() %>% 
+  group_by(winner) %>% 
+  summarise(prob_qf = n()/length(group_stage_simulated)) %>% 
+  arrange(desc(prob_qf)) %>% 
+  datatable(options = list(pageLength = 8)) %>% 
+  formatStyle(2, background = styleColorBar(0:1, 'lightblue')) %>% 
+  formatPercentage(2, digits = 2)
+```
+
+
+## Most Probable Pairing in Quarter Finals
+
+```{r}
+quarter_final %>% bind_rows() %>% 
+  group_by(team_home, team_away) %>% 
+  summarise(n = n()/length(group_stage_simulated)) %>% 
+  arrange(desc(n)) %>% 
+  datatable(options = list(pageLength = 8)) %>% 
+  formatStyle(3, background = styleColorBar(0:1, 'lightblue')) %>% 
+  formatPercentage(3, digits = 2)
+```
+
+
+## Advancing to Final
+
+```{r, echo = FALSE}
+
+matches_sf <- tribble(~match, ~home,~away,
+        "fn1", "sf1", "sf2",
+        "fn2", "sf3", "sf4"
+)
+
+
+semi_final <- quarter_final %>% 
+  map(knock_out2, matches = matches_sf, elo_ratings_tab = elo_ratings_tab)
+```
+
+```{r, echo = FALSE}
+semi_final %>% bind_rows() %>% 
+  group_by(winner) %>% 
+  summarise(prob_qf = n()/length(group_stage_simulated)) %>% 
+  arrange(desc(prob_qf)) %>% 
+  datatable(options = list(pageLength = 8)) %>% 
+  formatStyle(2, background = styleColorBar(0:1, 'lightblue')) %>% 
+  formatPercentage(2, digits = 2)
+```
+
+## Most Probable Pairing in Semi-Finals
+
+```{r, echo = FALSE}
+semi_final %>% bind_rows() %>% 
+  group_by(team_home, team_away) %>% 
+  summarise(n = n()/length(group_stage_simulated)) %>% 
+  arrange(desc(n)) %>% 
+  datatable(options = list(pageLength = 8)) %>% 
+  formatStyle(3, background = styleColorBar(0:1, 'lightblue')) %>% 
+  formatPercentage(3, digits = 2)
+```
+
+```{r, echo = FALSE}
+
+matches_fin <- tribble(~match, ~home,~away,
+        "finale", "fn1", "fn2"
+)
+
+
+final <- semi_final %>% 
+  map(knock_out2, matches = matches_fin, elo_ratings_tab = elo_ratings_tab)
+```
+
+
+## World Champion 2018
+
+```{r, echo = FALSE}
+final %>% bind_rows() %>% 
+  group_by(winner) %>% 
+  summarise(prob_qf = n()/length(group_stage_simulated)) %>% 
+  arrange(desc(prob_qf)) %>% 
+  datatable(options = list(pageLength = 8)) %>% 
+  formatStyle(2, background = styleColorBar(0:1, 'lightblue')) %>% 
+  formatPercentage(2, digits = 2)
+```
+
+## Most Probable  Final
+
+```{r, echo = FALSE}
+final %>% bind_rows() %>% 
+  group_by(team_home, team_away) %>% 
+  summarise(n = n()/length(group_stage_simulated)) %>% 
+  arrange(desc(n)) %>% 
+  datatable(options = list(pageLength = 8)) %>% 
+  formatStyle(3, background = styleColorBar(0:1, 'lightblue')) %>% 
   formatPercentage(3, digits = 2)
 ```
 
