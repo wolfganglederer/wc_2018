@@ -134,11 +134,12 @@ group_sim
 ## Qualified for round of 16
 
 ```{r, echo = FALSE}
-group_stage_simulated <- sim_group_stage(schedule_prob, 10000)
+group_stage_simulated <- sim_group_stage(schedule_prob, 20000)
 
 # saveRDS(group_stage_simulated, "group_stage_simulated.rds")
 
 # group_stage_simulated <- readRDS("group_stage_simulated.rds")
+
 
 qualified <- bind_rows(group_stage_simulated) %>% 
   filter(group_rank %in% c(1,2)) %>% 
@@ -226,6 +227,10 @@ matches <- tribble(~match, ~home,~away,
 
 round16 <- map(group_stage_simulated, knock_out_stages, matches = matches, elo_ratings_tab = elo_ratings_tab )
 
+
+# saveRDS(round16, "round16.rds")
+
+# round16 <- readRDS("round16.rds")
 ```
 
 
@@ -280,6 +285,7 @@ matches %>%
 
 ```
 
+
 # Quarter final
 
 ## Advancing to the semi final
@@ -295,6 +301,11 @@ matches_qf <- tribble(~match, ~home,~away,
 
 quarter_final <- round16 %>% 
   map(knock_out2, matches = matches_qf, elo_ratings_tab = elo_ratings_tab )
+
+
+# saveRDS(quarter_final, "quarter_final.rds")
+
+# quarter_final <- readRDS("quarter_final.rds")
 ```
 
 
@@ -334,6 +345,11 @@ matches_sf <- tribble(~match, ~home,~away,
 
 semi_final <- quarter_final %>% 
   map(knock_out2, matches = matches_sf, elo_ratings_tab = elo_ratings_tab)
+
+# saveRDS(semi_final, "semi_final.rds")
+
+# semi_final <- readRDS("semi_final.rds")
+
 ```
 
 ```{r, echo = FALSE}
@@ -367,6 +383,10 @@ matches_fin <- tribble(~match, ~home,~away,
 
 final <- semi_final %>% 
   map(knock_out2, matches = matches_fin, elo_ratings_tab = elo_ratings_tab)
+
+# saveRDS(final, "final.rds")
+# final <- readRDS("final.rds")
+
 ```
 
 # Finals
