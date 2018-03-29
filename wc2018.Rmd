@@ -24,7 +24,7 @@ library(countrycode)
 
 ```{r, include = FALSE}
 elo_ratings_tab <- read_tsv("http://www.eloratings.net/World.tsv", col_names = FALSE)
-elo_ratings_tab <- elo_ratings_tab %>%   
+elo_ratings_tab_iso <- elo_ratings_tab %>%   
   select(X3, X4) %>% 
   rename(country_iso = X3, "score" = X4) %>% 
   mutate(country = countrycode(country_iso, "iso2c", "country.name"),
@@ -34,7 +34,10 @@ elo_ratings_tab <- elo_ratings_tab %>%
          country = if_else(country_iso == "EI", "Northern Ireland", country),
          country = if_else(country_iso == "RU", "Russia", country),
          country = if_else(country_iso == "IR", "Iran", country),
-         country = if_else(country_iso == "KR", "South Korea", country)) %>% 
+         country = if_else(country_iso == "KR", "South Korea", country)) 
+
+elo_ratings_tab <-
+elo_ratings_tab_iso %>% 
   select(-country_iso)
   
 ```
